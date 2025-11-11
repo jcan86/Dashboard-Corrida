@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<!-- ATUALIZADO: Tema escuro aplicado no HTML --><html lang="pt-BR" class="h-full bg-slate-900 text-slate-200">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Corrida de Inovação</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Cores da marca InovaHC (do PDF) */
+            --color-brand-teal: #047474; 
+            --color-brand-teal-light: #0d9488; 
+            /* ATUALIZADO: Cores do novo cabeçalho */
+            --color-header-bg-start: #024c49;
+            --color-header-bg-end: #003d3c;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ATUALIZADO: Novo estilo do cabeçalho */
+        .header-bg {
+            background: linear-gradient(145deg, var(--color-header-bg-start), var(--color-header-bg-end));
+            padding: 2.5rem; /* p-10 */
+            border-radius: 1rem; /* rounded-2xl */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Sombra sutil para texto */
+        .text-shadow {
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Spinner de Carregamento */
+        .loader {
+            border: 4px solid #475569; /* slate-600 */
+            border-top: 4px solid var(--color-brand-teal);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Estilos do Modal de Login */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            transition: opacity 0.2s ease-in-out;
+        }
+        
+        .modal-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* CSS dos botões de aba */
+        .tab-button {
+            flex: 1 1 0%;
+            padding: 0.75rem 1.25rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Estilo INATIVO */
+        .tab-button:not(.active) {
+            background-color: #334155; /* slate-700 */
+            color: #cbd5e1; /* slate-300 */
+        }
+        .tab-button:not(.active):hover {
+            background-color: #475569; /* slate-600 */
+        }
+        /* Estilo ATIVO */
+        .tab-button.active {
+            background-color: #0d9488; /* teal-600 */
+            color: #ffffff;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .tab-button.active:hover {
+            background-color: #0f766e; /* teal-700 */
+        }
+    </style>
+</head>
+<body class="h-full p-4 md:p-8">
+
+    <div id="app" class="container mx-auto max-w-7xl">
+        
+        <header class="header-bg mb-8 shadow-lg relative">
+            <button id="logout-button" class="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors hidden p-2 z-10" aria-label="Fazer Logout">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </button>
+
+            <div class="text-left mb-4">
+                <span class="text-lg font-bold text-white text-shadow opacity-90">Inova HC</span>
+            </div>
+
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white text-shadow mt-4 text-center">
+                Corrida de Pesquisas - in.cube 6
+            </h1>
+            
+            <p class="text-lg text-slate-300 text-shadow opacity-90 mt-2 text-center">
+                Acompanhe o progresso das equipes em tempo real.
+            </p>
+        </header>
+
+        <div class="mb-6">
+            <nav class="flex space-x-4" aria-label="Tabs">
+                <button id="tab-race" class="tab-button active">
+                    Pista da Corrida
+                </button>
+                <button id="tab-control" class="tab-button">
+                    Painel de Controle
+                </button>
+            </nav>
+        </div>
+
+        <main id="main-content">
+            <!-- Loader inicial -->
+            <div class="flex flex-col items-center justify-center p-10 bg-slate-800 rounded-lg shadow">
+                <div class="loader"></div>
+                <p class="text-slate-400 mt-4">Carregando dados do Firestore...</p>
+            </div>
+        </main>
+
+        <footer id="formula-footer" class="mt-8"></footer>
+
+    </div>
+
+    <div id="login-modal" class="modal-overlay modal-hidden" data-modal-overlay>
+        <div class="bg-slate-800 p-8 rounded-lg shadow-2xl w-full max-w-sm border border-slate-700">
+            <h2 class="text-2xl font-bold text-white text-center mb-6">Acesso Restrito</h2>
+            <p class="text-slate-400 text-center text-sm mb-6">Por favor, insira o login de administrador para acessar o Painel de Controle.</p>
+            <form id="login-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="email" class="block text-sm font-semibold text-slate-300 mb-1">Login</label>
+                        <input type="email" id="email" placeholder="Seu login (ex: AAA@AAA)"
+                               class="w-full p-4 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-semibold text-slate-300 mb-1">Senha</label>
+                        <input type="password" id="password" placeholder="Sua senha"
+                               class="w-full p-4 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base">
+                    </div>
+                    <p id="login-error" class="text-red-500 text-sm hidden">Login ou senha inválidos.</p>
+                    <button type="submit" class="w-full text-white font-bold py-4 px-4 rounded-md transition-colors duration-200 
+                                       bg-teal-700 hover:bg-teal-800 
+                                       focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                                       disabled:bg-slate-600">
+                        Entrar
+                    </button>
+                    <button type="button" id="login-back-button" class="w-full text-slate-300 font-semibold py-3 px-4 rounded-md transition-colors duration-200 
+                                       bg-slate-700 hover:bg-slate-600 
+                                       focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2">
+                        Voltar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importações do Firebase (com login seguro)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged,
+            signInWithEmailAndPassword, 
+            signOut                     
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === CONFIGURAÇÃO GLOBAL ===
+        
+        // Cores
+        const BAR_CHART_COLOR = '#0d9488'; // var(--color-brand-teal-light)
+        const HORSE_ICON_COLORS = [
+            '#604B8C', '#2563EB', '#EF4444', '#22C55E', '#F97316', '#EAB308', '#D946EF', '#14B8A6',
+        ];
+        const PODIUM_COLORS = {
+            1: 'bg-yellow-500', 2: 'bg-slate-400', 3: 'bg-orange-600', default: 'bg-slate-700'
+        };
+
+        // Equipes iniciais (Seed)
+        const initialTeams = [
+            { name: "ThromboCheckX", integrantes: 4 },
+            { name: "INFAX Brasil", integrantes: 3 },
+            { name: "SafeMed Trace", integrantes: 5 },
+            { name: "NeoRenTex", integrantes: 4 },
+            { name: "NatureNeuro", integrantes: 3 },
+            { name: "vIvAMind", integrantes: 5 },
+            { name: "MindzyMap", integrantes: 4 },
+            { name: "PrintPharma", integrantes: 3 },
+            { name: "Emma", integrantes: 2 },
+            { name: "PROTEJA (Protocolo de Triagem...)", integrantes: 6 },
+            { name: "BioSync", integrantes: 3 },
+            { name: "Gestão inteligente de equipamentos...", integrantes: 5 },
+            { name: "INTELIGÊNCIA ARTIFICIAL (Saúde da Mulher)", integrantes: 4 },
+            { name: "PreGeneScan", integrantes: 3 },
+            { name: "HiNutri", integrantes: 4 },
+            { name: "IAlerts", integrantes: 3 }
+        ];
+        
+        // Lógica híbrida para (Prévia) ou (Netlify)
+        let firebaseConfig;
+        let initialAuthToken;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // Configuração do Firebase (Netlify)
+        const HOSTED_FIREBASE_CONFIG = {
+             apiKey: "AIzaSyBAMfOE8bGgCVzXTXE-FcvMHfDrVUSa2rE",
+             authDomain: "dashboard-corrida-hc.firebaseapp.com",
+             projectId: "dashboard-corrida-hc",
+             storageBucket: "dashboard-corrida-hc.appspot.com", 
+             messagingSenderId: "973995255997",
+             appId: "1:973995255997:web:9fffa464a274303ef2d4"
+        };
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            // Estamos no ambiente de PRÉVIA (Canvas)
+            firebaseConfig = JSON.parse(__firebase_config);
+            initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            console.log("Rodando em modo PRÉVIA (Canvas)");
+        } else {
+            // Estamos no modo HOSTED (Netlify)
+            firebaseConfig = HOSTED_FIREBASE_CONFIG;
+            initialAuthToken = null; // Login anônimo será usado
+            console.log("Rodando em modo HOSTED (Netlify)");
+        }
+        
+        // --- CORREÇÃO IMPORTANTE ---
+        // A verificação estava errada e bloqueando sua chave.
+        // Agora ela procura por um placeholder, como "COLE_AQUI".
+        if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("COLE_AQUI")) {
+            mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-red-600 font-bold">Erro de Configuração.</p><p class="text-slate-400 text-sm mt-2">A configuração essencial do Firebase não foi encontrada. O app não pode carregar.</p></div>`;
+            throw new Error("Erro fatal: A configuração do Firebase (HOSTED_FIREBASE_CONFIG) não foi preenchida.");
+        }
+        // --- FIM DA CORREÇÃO ---
+
+        let db, auth, userId;
+        let dbCollection;
+
+        // Estado da Aplicação
+        let currentTab = 'race'; // 'race' ou 'control'
+        let teamsData = []; // Cache local dos dados das equipes
+        let isAdminLoggedIn = false; // Estado de login do admin
+
+        // === ELEMENTOS DOM ===
+        const mainContent = document.getElementById('main-content');
+        const formulaFooter = document.getElementById('formula-footer');
+        const tabRace = document.getElementById('tab-race');
+        const tabControl = document.getElementById('tab-control');
+        
+        const loginModal = document.getElementById('login-modal');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutButton = document.getElementById('logout-button');
+        const loginBackButton = document.getElementById('login-back-button');
+
+        // === FUNÇÕES DE LÓGICA DE NEGÓCIO ===
+
+        function calculateEffortIndex(interviews, members) {
+            const validMembers = (members <= 1) ? 1 : members;
+            const interviewsNum = Number(interviews) || 0;
+            const index = interviewsNum / Math.sqrt(validMembers);
+            return parseFloat(index.toFixed(2));
+        }
+
+        function normalizePosition(teamIndex, maxIndex) {
+            if (maxIndex === 0) return 0;
+            const percentage = (teamIndex / maxIndex) * 100;
+            return percentage;
+        }
+
+        // === FUNÇÕES DE RENDERIZAÇÃO (VIEWS) ===
+
+        function renderRaceTrack() {
+            if (teamsData.length === 0) {
+                mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-slate-400">Nenhuma equipe encontrada. Dados podem estar sendo carregados...</p></div>`;
+                return;
+            }
+
+            const maxIndex = Math.max(...teamsData.map(team => team.effortIndex), 1);
+
+            // --- 1. Gráfico de Pista (Lateral) ---
+            const sortedTeams = [...teamsData].sort((a, b) => a.name.localeCompare(b.name));
+            
+            const lanesHTML = sortedTeams.map((team, i) => {
+                const positionPercent = normalizePosition(team.effortIndex, maxIndex);
+                const visualPosition = Math.min(positionPercent, 96); 
+                const color = HORSE_ICON_COLORS[i % HORSE_ICON_COLORS.length];
+
+                return `
+                    <div class="flex items-center border-b border-slate-700 min-h-[5rem]">
+                        <div class="w-1/4 pr-4 text-right">
+                            <span class="text-base font-semibold text-slate-200 break-words">${team.name}</span>
+                        </div>
+                        <div class="flex-1 h-full relative border-l border-r border-slate-700">
+                            <div class="horse absolute top-1/2 -mt-4" style="left: ${visualPosition}%; transition: left 0.5s ease;">
+                                <div class="horse-icon w-8 h-8" style="color: ${color}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));">
+                                    ${getHorseSvg()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // --- 2. Gráfico de Barras (Ranking) ---
+            const rankedTeams = [...teamsData].sort((a, b) => b.effortIndex - a.effortIndex);
+            
+            const rankingHTML = rankedTeams.map((team, i) => {
+                const positionPercent = normalizePosition(team.effortIndex, maxIndex);
+                const rank = i + 1;
+                const podiumColorClass = PODIUM_COLORS[rank] || PODIUM_COLORS.default;
+                
+                return `
+                    <div class="flex items-center space-x-4 mb-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full ${podiumColorClass} flex items-center justify-center text-sm font-bold text-white">
+                            ${rank}
+                        </div>
+                        <div class="w-1/3 md:w-1/4 text-sm text-slate-300 break-words">${team.name}</div>
+                        <div class="flex-1 bg-slate-700 rounded-full h-6 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500 ease-out" 
+                                 style="width: ${positionPercent}%; background-color: ${BAR_CHART_COLOR};">
+                            </div>
+                        </div>
+                        <div class="w-12 text-right text-sm font-semibold text-white">
+                            ${positionPercent.toFixed(1)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // --- Montagem Final ---
+            mainContent.innerHTML = `
+                <div class="bg-slate-800 p-4 md:p-6 rounded-lg shadow-lg">
+                    <div class="flex items-center border-b border-slate-700 mb-2">
+                        <div class="w-1/4 pr-4"></div>
+                        <div class="flex-1 flex justify-between text-sm font-bold text-slate-400 px-2">
+                            <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <div class="finish-line absolute right-0 top-0 bottom-0 w-8" style="
+                            background-image: linear-gradient(45deg, #fff 25%, transparent 25%), linear-gradient(-45deg, #fff 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #fff 75%), linear-gradient(-45deg, transparent 75%, #fff 75%);
+                            background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0px; border-left: 2px solid #fff;
+                        "></div>
+                        ${lanesHTML}
+                    </div>
+                </div>
+                <div class="bg-slate-800 p-4 md:p-6 rounded-lg shadow-lg mt-8">
+                    <h2 class="text-xl md:text-2xl font-bold text-white mb-6">
+                        Colocação por Índice Normalizado (%)
+                    </h2>
+                    <div class="space-y-2">
+                        ${rankingHTML}
+                    </div>
+                </div>
+            `;
+            
+            renderFormulaFooter();
+        }
+
+        function renderControlPanel() {
+            if (teamsData.length === 0) {
+                mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-slate-400">Nenhuma equipe encontrada...</p></div>`;
+                return;
+            }
+
+            const sortedTeams = [...teamsData].sort((a, b) => a.name.localeCompare(b.name));
+
+            const cardsHTML = sortedTeams.map((team, i) => {
+                const color = HORSE_ICON_COLORS[i % HORSE_ICON_COLORS.length];
+                
+                return `
+                    <div class="bg-slate-800 p-5 rounded-lg shadow-md border-l-4" style="border-color: ${color};">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="name-${team.id}" class="block text-sm font-semibold text-slate-300 mb-1">Nome da Equipe</label>
+                                <input type="text" id="name-${team.id}" value="${team.name}"
+                                       class="w-full p-4 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base">
+                            </div>
+                            <div>
+                                <label for="interviews-${team.id}" class="block text-sm font-semibold text-slate-300 mb-1">Nº de Entrevistas</label>
+                                <input type="number" id="interviews-${team.id}" value="${team.interviews}" min="0" 
+                                       class="w-full p-4 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base">
+                            </div>
+                            <div>
+                                <label for="members-${team.id}" class="block text-sm font-semibold text-slate-300 mb-1">Nº de Integrantes</label>
+                                <input type="number" id="members-${team.id}" value="${team.members}" min="1" 
+                                       class="w-full p-4 border border-slate-600 rounded-md bg-slate-700 text-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-base">
+                            </div>
+                            <button class="save-button w-full text-white font-bold py-4 px-4 rounded-md transition-colors duration-200 
+                                       bg-teal-700 hover:bg-teal-800 
+                                       focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2
+                                       disabled:bg-slate-600" 
+                                    data-team-id="${team.id}">
+                                Salvar Alterações
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            mainContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${cardsHTML}
+                </div>
+            `;
+            
+            formulaFooter.innerHTML = '';
+            addSaveButtonListeners();
+        }
+
+        function renderFormulaFooter() {
+            formulaFooter.innerHTML = `
+                <div class="bg-slate-800 p-5 rounded-lg shadow text-center border-l-4 border-teal-700">
+                    <h4 class="text-base font-semibold text-slate-100">Como a posição é calculada?</h4>
+                    <p class="text-sm text-slate-300 mt-2">
+                        <strong>Índice de Esforço</strong> = (Nº de Entrevistas) / √ (Nº de Integrantes)
+                    </p>
+                    <p class="text-xs text-slate-400 mt-2">
+                        A posição na pista é o seu índice normalizado contra o líder. (Se integrantes for 0 ou 1, é tratado como 1).
+                    </p>
+                </div>
+            `;
+        }
+
+        function renderCurrentTab() {
+            if (currentTab === 'race') {
+                tabRace.classList.add('active');
+                tabControl.classList.remove('active');
+                renderRaceTrack();
+            } else {
+                if (isAdminLoggedIn) {
+                    tabControl.classList.add('active');
+                    tabRace.classList.remove('active');
+                    renderControlPanel();
+                } else {
+                    currentTab = 'race';
+                    tabRace.classList.add('active');
+                    tabControl.classList.remove('active');
+                    showLoginModal();
+                }
+            }
+        }
+
+        // === MANIPULADORES DE EVENTO ===
+
+        function handleTabClick(e) {
+            const newTab = e.target.id === 'tab-race' ? 'race' : 'control';
+            if (newTab === currentTab) return;
+
+            if (newTab === 'control') {
+                if (isAdminLoggedIn) {
+                    currentTab = 'control';
+                    renderCurrentTab();
+                } else {
+                    showLoginModal();
+                }
+            } else {
+                currentTab = 'race';
+                renderCurrentTab();
+            }
+        }
+
+        function addSaveButtonListeners() {
+            document.querySelectorAll('.save-button').forEach(button => {
+                button.addEventListener('click', handleSaveClick);
+            });
+        }
+
+        async function handleSaveClick(e) {
+            const button = e.target;
+            const teamId = button.dataset.teamId;
+
+            const nameInput = document.getElementById(`name-${teamId}`);
+            const interviewsInput = document.getElementById(`interviews-${teamId}`);
+            const membersInput = document.getElementById(`members-${teamId}`);
+            
+            const name = nameInput.value;
+            const interviews = interviewsInput.value;
+            const members = membersInput.value;
+
+            if (!name || name.trim() === '') {
+                nameInput.classList.add('border-red-500', 'ring-red-500');
+                nameInput.focus();
+                setTimeout(() => nameInput.classList.remove('border-red-500', 'ring-red-500'), 2000);
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = 'Salvando...';
+
+            try {
+                const teamRef = doc(dbCollection, teamId);
+                await updateDoc(teamRef, {
+                    name: name,
+                    interviews: Number(interviews),
+                    members: Number(members)
+                });
+                
+                button.textContent = 'Salvo!';
+                button.classList.replace('bg-teal-700', 'bg-green-500');
+                
+                setTimeout(() => {
+                    button.textContent = 'Salvar Alterações';
+                    button.classList.replace('bg-green-500', 'bg-teal-700');
+                    button.disabled = false;
+                }, 1500);
+
+            } catch (error) {
+                console.error("Erro ao salvar dados:", error);
+                button.textContent = 'Erro ao Salvar';
+                button.classList.replace('bg-teal-700', 'bg-red-500');
+                
+                setTimeout(() => {
+                    button.textContent = 'Salvar Alterações';
+                    button.classList.replace('bg-red-500', 'bg-teal-700');
+                    button.disabled = false;
+                }, 2000);
+            }
+        }
+        
+        function getHorseSvg() {
+            // Ícone de cavalo de corrida
+            return `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7.618 10.024a.75.75 0 0 0-.472 1.365l1.67 2.099a.75.75 0 0 0 .544.262l2.427-.001-.848 2.036a.75.75 0 0 0 .323 1.011l1.52.634a.75.75 0 0 0 1.011-.323l2.23-5.352a.75.75 0 0 0-.262-1.011l-2.099-1.67a.75.75 0 0 0-.544-.262L10.02 9.789l.37-2.22a.75.75 0 0 0-.471-1.01l-1.67-.696a.75.75 0 0 0-1.01.472l-1.39 3.336a.75.75 0 0 0 .198.853Z" />
+                    <path d="M17.47 7.502a.75.75 0 0 0-1.06-.001L15.06 8.85l.001-.001h-.002l-.002.001-.002.001a.75.75 0 0 0-.23.151l-2.09 1.672a.75.75 0 0 0-.214.33l-.001.002-.002.005-.008.018a.75.75 0 0 0 .02.508l.001.002.001.005.004.012l.007.017a.75.75 0 0 0 .148.24l.002.002.004.005.006.007.008.01.01.012.01.01.013.011.013.012.015.013.015.013a.75.75 0 0 0 .515.029l.01-.005.012-.007.013-.007.015-.008.015-.01a.75.75 0 0 0 .23-.15l.002-.002.004-.005.006-.006.007-.009.008-.009a.75.75 0 0 0 .14-.223l.002-.004.003-.006.004-.01.005-.01a.75.75 0 0 0 .041-.1l.001-.004.003-.01.003-.01.002-.01.002-.008a.75.75 0 0 0 .022-.505l-.001-.003-.002-.005-.002-.007-.004-.012a.75.75 0 0 0-.154-.248l-.002-.002-.004-.005-.006-.007-.008-.01-.01-.01-.012-.01-.012-.01-.013-.01-.015-.01a.75.75 0 0 0-.51-.03l-.01.005-.01.006-.011.007-.012.008-.012.01a.75.75 0 0 0-.223.153l-.001.001-.003.005-.004.005-.005.007-.006.009a.75.75 0 0 0-.134.22l-.001.003-.002.005-.003.008-.003.01a.75.75 0 0 0-.036.095l-.001.002-.001.004-.001.004c.08.36.217.703.398 1.018l-1.07 2.566a.75.75 0 0 0 .323 1.011l1.52.634a.75.75 0 0 0 1.011-.323l2.23-5.352a.75.75 0 0 0-.262-1.011l-2.099-1.67Z" />
+                </svg>
+            `;
+        }
+        
+        // === Funções de Login Admin (SEGURAS) ===
+        function showLoginModal() {
+            loginError.classList.add('hidden');
+            loginModal.classList.remove('modal-hidden');
+        }
+        
+        function hideLoginModal() {
+            loginModal.classList.add('modal-hidden');
+        }
+        
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+            const email = loginForm.email.value;
+            const password = loginForm.password.value;
+            const button = e.target.querySelector('button[type="submit"]');
+
+            button.disabled = true;
+            button.textContent = "Entrando...";
+            loginError.classList.add('hidden');
+
+            try {
+                // O Firebase verifica a senha no servidor
+                await signInWithEmailAndPassword(auth, email, password);
+                
+                // Se der certo, o onAuthStateChanged vai notar
+                // e vai definir isAdminLoggedIn = true
+                hideLoginModal();
+                currentTab = 'control';
+                renderCurrentTab();
+
+            } catch (error) {
+                // Se der errado (senha inválida, etc)
+                console.error("Erro de login:", error.code);
+                loginError.classList.remove('hidden');
+                isAdminLoggedIn = false;
+            
+            } finally {
+                // Sempre re-ativa o botão
+                button.disabled = false;
+                button.textContent = "Entrar";
+            }
+        }
+        
+        async function handleLogoutClick() {
+            try {
+                await signOut(auth);
+                // IMPORTANTE: Faz login anônimo de novo para 
+                // que a pessoa possa continuar vendo a pista.
+                await signInAnonymously(auth);
+
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+            }
+        }
+
+
+        // === FUNÇÕES DO FIREBASE ===
+
+        async function initializeFirebase() {
+            try {
+                // setLogLevel('debug');
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Define o caminho da coleção no Firestore
+                dbCollection = collection(db, `/artifacts/${appId}/public/data/horse-race-progress`);
+
+                // onAuthStateChanged agora controla o estado de admin
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+
+                        if (user.isAnonymous) {
+                            // É um visitante (anônimo)
+                            isAdminLoggedIn = false;
+                            logoutButton.classList.add('hidden');
+                        } else {
+                            // É um administrador (logado com e-mail)
+                            isAdminLoggedIn = true;
+                            logoutButton.classList.remove('hidden');
+                        }
+                        
+                        // Funções que rodam para QUALQUER usuário logado
+                        seedInitialData(); // Tenta plantar os dados se não existirem
+                        setupSnapshotListener(); // Começa a ouvir o banco
+
+                    } else {
+                        // Ninguém logado (acontece brevemente durante o logout)
+                        isAdminLoggedIn = false;
+                        logoutButton.classList.add('hidden');
+                    }
+                });
+
+
+                // Lógica de login inicial (Canvas ou Netlify)
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    // Se não estiver no Canvas, faz login anônimo
+                    await signInAnonymously(auth);
+                }
+                // O onAuthStateChanged acima vai pegar esse login
+
+            } catch (error) {
+                console.error("Falha ao inicializar o Firebase:", error);
+                mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-red-600 font-bold">Erro ao conectar com o banco de dados.</p><p class="text-slate-500 text-sm mt-2">${error.message}</p></div>`;
+            }
+        }
+        
+        async function seedInitialData() {
+            try {
+                const snapshot = await getDocs(dbCollection);
+                if (snapshot.empty) {
+                    console.log("Banco de dados vazio. Plantando dados iniciais...");
+                    const batch = writeBatch(db);
+                    initialTeams.forEach(team => {
+                        const docId = team.name.replace(/[^a-z0-9]/gi, '-').toLowerCase(); 
+                        const docRef = doc(dbCollection, docId);
+                        batch.set(docRef, {
+                            name: team.name,
+                            members: team.integrantes,
+                            interviews: 0,
+                            createdAt: new Date()
+                        });
+                    });
+                    await batch.commit();
+                    console.log("Dados iniciais plantados com sucesso.");
+                } else {
+                    console.log("Banco de dados já contém dados.");
+                }
+            } catch (error) {
+                console.error("Erro ao popular dados iniciais:", error);
+                // Mostra um erro se o "plantio" falhar (ex: regras de segurança)
+                mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-red-600 font-bold">Erro ao iniciar o banco de dados.</p><p class="text-slate-500 text-sm mt-2">${error.message}</p></div>`;
+            }
+        }
+
+        function setupSnapshotListener() {
+            onSnapshot(dbCollection, (snapshot) => {
+                console.log("Recebidos dados do Firestore:", snapshot.size, "documentos.");
+                const newTeamsData = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const effortIndex = calculateEffortIndex(data.interviews, data.members);
+                    newTeamsData.push({
+                        id: doc.id,
+                        name: data.name,
+                        members: data.members || 1,
+                        interviews: data.interviews || 0,
+                        effortIndex: effortIndex
+                    });
+                });
+                
+                teamsData = newTeamsData.sort((a, b) => a.name.localeCompare(b.name));
+                renderCurrentTab(); // Renderiza a tela com os dados
+                
+            }, (error) => {
+                console.error("Erro no listener do Firestore:", error);
+                mainContent.innerHTML = `<div class="text-center p-10 bg-slate-800 rounded-lg shadow"><p class="text-red-600 font-bold">Erro ao ouvir atualizações.</p><p class="text-slate-500 text-sm mt-2">${error.message}</p></div>`;
+            });
+        }
+
+        // === INICIALIZAÇÃO DA APLICAÇÃO ===
+        
+        tabRace.addEventListener('click', handleTabClick);
+        tabControl.addEventListener('click', handleTabClick);
+        loginForm.addEventListener('submit', handleLoginSubmit);
+        logoutButton.addEventListener('click', handleLogoutClick);
+        loginBackButton.addEventListener('click', hideLoginModal);
+        
+        loginModal.addEventListener('click', (e) => {
+            if (e.target.hasAttribute('data-modal-overlay')) {
+                hideLoginModal();
+            }
+        });
+        
+        // Inicia tudo
+        initializeFirebase();
+
+    </script>
+</body>
+</html>
